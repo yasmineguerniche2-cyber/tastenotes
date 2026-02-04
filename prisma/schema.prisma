@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PriceRange {
+  EURO
+  EURO_EURO
+  EURO_EURO_EURO
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  displayName   String
+  username      String    @unique
+  bio           String?
+  city          String?
+  avatarUrl     String?
+  isPrivate     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  reviews       Review[]
+  lists         List[]
+  photos        Photo[]
+  followers     Follow[]  @relation("followers")
+  following     Follow[]  @relation("following")
+  wants         WantToTry[]
+}
+
+model Restaurant {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  postalCode   String?
+  country      String    @default("FR")
+  lat          Float
+  lng          Float
+  cuisine      String
+  priceRange   PriceRange
+  phone        String?
+  website      String?
+  hours        Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  reviews      Review[]
+  tags         RestaurantTag[]
+  photos       Photo[]
+  wants        WantToTry[]
+
+  @@index([city])
+  @@index([lat, lng])
+  @@index([priceRange])
+}
+
+model Review {
+  id                String      @id @default(cuid())
+  rating            Float
+  text              String
+  visitedAt         DateTime
+  priceRangeAtVisit PriceRange?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  restaurant        Restaurant  @relation(fields: [restaurantId], references: [id])
+  restaurantId      String
+  author            User        @relation(fields: [authorId], references: [id])
+  authorId          String
+  tags              ReviewTag[]
+  likes             ReviewLike[]
+
+  @@unique([restaurantId, authorId])
+  @@index([restaurantId])
+  @@index([authorId])
+}
+
+model CuisineTag {
+  id    String @id @default(cuid())
+  name  String @unique
+  type  String @default("tag")
+  restaurants RestaurantTag[]
+  reviews ReviewTag[]
+
+  @@index([type])
+}
+
+model RestaurantTag {
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  tag          CuisineTag @relation(fields: [tagId], references: [id])
+  tagId        String
+
+  @@id([restaurantId, tagId])
+  @@index([tagId])
+}
+
+model ReviewTag {
+  review   Review @relation(fields: [reviewId], references: [id])
+  reviewId String
+  tag      CuisineTag @relation(fields: [tagId], references: [id])
+  tagId    String
+
+  @@id([reviewId, tagId])
+  @@index([tagId])
+}
+
+model Follow {
+  follower   User   @relation("following", fields: [followerId], references: [id])
+  followerId String
+  following  User   @relation("followers", fields: [followingId], references: [id])
+  followingId String
+  createdAt  DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model List {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  isPublic    Boolean    @default(true)
+  owner       User       @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  items       ListItem[]
+
+  @@index([ownerId])
+}
+
+model ListItem {
+  id           String     @id @default(cuid())
+  list         List       @relation(fields: [listId], references: [id])
+  listId       String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  note         String?
+  createdAt    DateTime   @default(now())
+
+  @@unique([listId, restaurantId])
+}
+
+model Photo {
+  id           String     @id @default(cuid())
+  url          String
+  caption      String?
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id])
+  restaurantId String?
+  uploadedBy   User        @relation(fields: [uploadedById], references: [id])
+  uploadedById String
+  createdAt    DateTime    @default(now())
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  reason    String
+  details   String?
+  createdAt DateTime @default(now())
+  review    Review?  @relation(fields: [reviewId], references: [id])
+  reviewId  String?
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id])
+  restaurantId String?
+  reporter  User     @relation(fields: [reporterId], references: [id])
+  reporterId String
+}
+
+model ReviewLike {
+  review   Review @relation(fields: [reviewId], references: [id])
+  reviewId String
+  user     User   @relation(fields: [userId], references: [id])
+  userId   String
+  createdAt DateTime @default(now())
+
+  @@id([reviewId, userId])
+}
+
+model WantToTry {
+  id           String     @id @default(cuid())
+  user         User       @relation(fields: [userId], references: [id])
+  userId       String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, restaurantId])
+}
